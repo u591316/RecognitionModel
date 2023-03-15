@@ -50,6 +50,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CameraController.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -85,6 +86,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Emgu.CV">
+      <Version>4.6.0.5131</Version>
+    </PackageReference>
+    <PackageReference Include="Emgu.CV.Bitmap">
       <Version>4.6.0.5131</Version>
     </PackageReference>
     <PackageReference Include="Emgu.CV.runtime.windows">

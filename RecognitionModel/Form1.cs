@@ -1,27 +1,89 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
-using Tensorflow;
 using System.Windows.Forms;
 using System.IO;
 using System.Drawing;
 using Emgu.CV.Face;
 using System.Linq;
+using System.Drawing.Text;
 
 namespace RecognitionModel
 {
     public partial class Form1 : Form
     {
         private CascadeClassifier faceDetector;
+        private LBPHFaceRecognizer _recognizer;
+        private CameraController _cameraController;
+        private int previousPredictedLabel = -1;
+        private int faceNotDetectedCounter = 0; 
+
         public Form1()
         {
             InitializeComponent();
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
+            _recognizer = new LBPHFaceRecognizer();
+            _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+            _cameraController = new CameraController();
+            _cameraController.FrameCaptured += CameraController_FrameCaptured;
+
+        }
+
+        private void CameraController_FrameCaptured(Bitmap image)
+        {
+            Bitmap frameBitmap = new Bitmap(image);
+            Image<Bgr, byte> frame = frameBitmap.ToImage<Bgr, byte>();
+            Image<Gray, byte> grayFrame = frame.Convert<Gray, byte>();
+            Rectangle[] faces = faceDetector.DetectMultiScale(grayFrame, 1.1, 5);
+
+            Dictionary<int, string> labelToName = new Dictionary<int, string>
+            {
+                {1, "Markus Pedersen" },
+                {2, "Matias Raknes" },
+                {3, "Elon Musk" },
+                {4, "Stian Trohaug" }
+            };
+
+            if (faces.Length > 0)
+            {
+                faceNotDetectedCounter = 0;
+                if(previousPredictedLabel == -1)
+                {
+                    previousPredictedLabel = PerformFaceRecognition(grayFrame, faces[0]);
+                }
+                using (Graphics g = Graphics.FromImage(image))
+                {
+                    // Justere tekststil og posisjon etter behov
+                    string name = labelToName[previousPredictedLabel];
+                    Font font = new Font("Arial", 16);
+                    SolidBrush brush = new SolidBrush(Color.Red);
+                    PointF point = new PointF(faces[0].Left, faces[0].Top - 20);
+
+                    g.DrawString(name, font, brush, point);
+                }
+            }
+            else
+            {
+                faceNotDetectedCounter++;
+                //Number of frames without a detection threshold for running new recognition
+                if(faceNotDetectedCounter > 30)
+                {
+                    previousPredictedLabel = -1;
+                    faceNotDetectedCounter = 0;
+                }
+            }
+            pictureBox1.Image = image; 
+        }
+
+        private int PerformFaceRecognition(Image<Gray, byte> grayFrame, Rectangle face)
+        {
+            Image<Gray, byte> faceImage = grayFrame.Copy(face);
+            var result = _recognizer.Predict(faceImage);
+
+            return result.Label; 
         }
 
         private void prepPic_Click(object sender, EventArgs e)
@@ -178,5 +240,6 @@ namespace RecognitionModel
             Console.WriteLine($"Predicted Name: {labelToName[result.Label]}");
             Console.WriteLine($"Confidence: {result.Distance}");
         }
+
     }
 }
