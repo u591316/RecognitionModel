@@ -12,9 +12,10 @@ namespace RecognitionModel
 
         private VideoCapture _capture;
 
+
         public CameraController()
         {
-            _capture = new VideoCapture(0);
+            _capture = new VideoCapture();
             _capture.ImageGrabbed += Capture_ImageGrabbed;
             _capture.Start();
         }
