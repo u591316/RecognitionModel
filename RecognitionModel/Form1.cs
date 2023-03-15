@@ -9,6 +9,7 @@ using System.Drawing;
 using Emgu.CV.Face;
 using System.Linq;
 using System.Drawing.Text;
+using Tensorflow.Train;
 
 namespace RecognitionModel
 {
@@ -18,15 +19,31 @@ namespace RecognitionModel
         private LBPHFaceRecognizer _recognizer;
         private CameraController _cameraController;
         private int previousPredictedLabel = -1;
-        private int faceNotDetectedCounter = 0; 
+        private int faceNotDetectedCounter = 0;
+
+        private string rawPhotosPath;
+        private string croppedPhotosPath;
+        private string labelsFileName;
+        private FaceDatasetManager _faceDatasetManager;
+
+        private bool processingCompleted = false;
+        private bool training = false; 
+
 
         public Form1()
         {
             InitializeComponent();
+            rawPhotosPath = "C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\rawPhotos";
+            croppedPhotosPath = "C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos";
+            labelsFileName = "labels.txt";
+            _faceDatasetManager = new FaceDatasetManager(rawPhotosPath, croppedPhotosPath, labelsFileName);
+            processingCompleted = CheckForProcessedImages();
+            Dictionary<int, string> labelToName = _faceDatasetManager.LoadLabelToNameMap();
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
             _recognizer = new LBPHFaceRecognizer();
-            _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+            if(training)
+                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
             _cameraController = new CameraController();
             _cameraController.FrameCaptured += CameraController_FrameCaptured;
 
@@ -34,6 +51,11 @@ namespace RecognitionModel
 
         private void CameraController_FrameCaptured(Bitmap image)
         {
+            if (!processingCompleted)
+            {
+                pictureBox1.Image = image;
+                return;
+            }
             Bitmap frameBitmap = new Bitmap(image);
             Image<Bgr, byte> frame = frameBitmap.ToImage<Bgr, byte>();
             Image<Gray, byte> grayFrame = frame.Convert<Gray, byte>();
@@ -88,7 +110,17 @@ namespace RecognitionModel
 
         private void prepPic_Click(object sender, EventArgs e)
         {
-            cropPictures();
+            _faceDatasetManager.ProcessRawPhotos();
+            Dictionary<int, string> newLabelToName = new Dictionary<int, string>
+            {
+                {1, "MarkusPedersen" },
+                {2, "MatiasRaknes" },
+                {3, "ElonMusk" },
+                {4, "StianTrohaug" }
+            };
+
+            _faceDatasetManager.SaveLabelToNameMap(newLabelToName);
+            processingCompleted = true; 
         }
 
         private void cropPictures()
@@ -109,22 +141,22 @@ namespace RecognitionModel
             foreach (string imagePath in Directory.GetFiles(person1Folder))
             {
                 if(IsSupportedImageFormat(imagePath))
-                    cropFaces(imagePath, person1Cropped);
+                    FaceUtils.CropFaces(imagePath, person1Cropped);
             }
             foreach(string imagePath in Directory.GetFiles(person2Folder))
             {
                 if (IsSupportedImageFormat(imagePath))
-                    cropFaces(imagePath, person2Cropped);
+                    FaceUtils.CropFaces(imagePath, person2Cropped);
             }
             foreach(string imagePath in Directory.GetFiles(person3Folder))
             {
                 if (IsSupportedImageFormat(imagePath))
-                    cropFaces(imagePath, person3Cropped);
+                    FaceUtils.CropFaces(imagePath, person3Cropped);
             }
             foreach (string imagePath in Directory.GetFiles(person4Folder))
             {
                 if (IsSupportedImageFormat(imagePath))
-                    cropFaces(imagePath, person4Cropped);
+                    FaceUtils.CropFaces(imagePath, person4Cropped);
             }
         }
 
@@ -136,71 +168,71 @@ namespace RecognitionModel
             return supportedExtensions.Contains(fileExtension);
         }
 
-        private void cropFaces(string imagePath, string outputPath)
+        private void cropFaces(string imagePath, string outputFolderPath)
         {
-            Image<Bgr, byte> image = new Image<Bgr, byte>(imagePath);
-            //Adjust resolution to reduce memory usage..
-            image = image.Resize(640, 480, Inter.Linear);
-            Image<Gray, byte> grayImage = image.Convert<Gray, byte>();
-            Rectangle[] faces = faceDetector.DetectMultiScale(grayImage, 1.1, 5);
-            foreach (Rectangle face in faces)
+            using (Mat image = CvInvoke.Imread(imagePath, ImreadModes.Color))
             {
-                Image<Gray, byte> faceImage = grayImage.Copy(face);
-                faceImage.Save(Path.Combine(outputPath, Path.GetFileName(imagePath)));
+                if (image != null && !image.IsEmpty)
+                {
+                    using (Mat gray = new Mat())
+                    {
+                        CvInvoke.CvtColor(image, gray, ColorConversion.Bgr2Gray);
+                        CvInvoke.EqualizeHist(gray, gray);
+
+                        // Detect faces
+                        Rectangle[] faces = faceDetector.DetectMultiScale(gray, 1.1, 10, new Size(50, 50));
+
+                        // Crop and save each face
+                        foreach (Rectangle face in faces)
+                        {
+                            using (Mat croppedFace = new Mat(image, face))
+                            {
+                                string outputFilePath = Path.Combine(outputFolderPath, $"{Guid.NewGuid()}.jpg");
+                                CvInvoke.Imwrite(outputFilePath, croppedFace);
+                            }
+                        }
+                    }
+                }
             }
         }
+
 
         private void btn_train_Click(object sender, EventArgs e)
         {
-            trainModel();
+            TrainModel();
         }
 
-        private void trainModel()
+        private void TrainModel()
         {
             LBPHFaceRecognizer _recognizer = new LBPHFaceRecognizer();
 
+            // Load label to name map
+            Dictionary<int, string> labelToName = _faceDatasetManager.LoadLabelToNameMap();
 
-            string[] person1 = Directory.GetFiles("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos\\MarkusPedersen");
-            string[] person2 = Directory.GetFiles("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos\\MatiasRaknes");
-            string[] person3  = Directory.GetFiles("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos\\ElonMusk");
-            string[] person4  = Directory.GetFiles("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos\\StianTrohaug");
-
+            // Get cropped photos from the croppedPhotosPath
             List<Mat> images = new List<Mat>();
-            var labels = new List<int>();
+            List<int> labels = new List<int>();
 
-            foreach(string imagePath in person1)
+            foreach (KeyValuePair<int, string> entry in labelToName)
             {
-                Mat image = new Mat(imagePath);
-                CvInvoke.CvtColor(image, image, ColorConversion.Bgr2Gray);
-                images.Add(image);
-                labels.Add(1);
-            }
-            foreach(string imagePath in person2)
-            {
-                Mat image = new Mat(imagePath);
-                CvInvoke.CvtColor(image, image, ColorConversion.Bgr2Gray);
-                images.Add(image);
-                labels.Add(2);
-            }
-            foreach(string imagePath in person3)
-            {
-                Mat image = new Mat(imagePath);
-                CvInvoke.CvtColor(image, image, ColorConversion.Bgr2Gray);
-                images.Add(image);
-                labels.Add(3);
-            }
-            foreach (string imagePath in person4)
-            {
-                Mat image = new Mat(imagePath);
-                CvInvoke.CvtColor(image, image, ColorConversion.Bgr2Gray);
-                images.Add(image);
-                labels.Add(4);
+                int label = entry.Key;
+                string personName = entry.Value;
+                string personCroppedPath = Path.Combine(croppedPhotosPath, personName);
+
+                foreach (string imagePath in Directory.GetFiles(personCroppedPath))
+                {
+                    Mat image = new Mat(imagePath);
+                    CvInvoke.CvtColor(image, image, ColorConversion.Bgr2Gray);
+                    images.Add(image);
+                    labels.Add(label);
+                }
             }
 
             _recognizer.Train(images.ToArray(), labels.ToArray());
             _recognizer.Write("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\TrainedModel\\model.yml");
-            
+            training = true; 
         }
+
 
         private void PredictLabels_btn(object sender, EventArgs e)
         {
@@ -239,6 +271,19 @@ namespace RecognitionModel
             Console.WriteLine($"Predicted Label: {result.Label}");
             Console.WriteLine($"Predicted Name: {labelToName[result.Label]}");
             Console.WriteLine($"Confidence: {result.Distance}");
+        }
+
+        private bool CheckForProcessedImages()
+        {
+            var directories = Directory.GetDirectories(croppedPhotosPath);
+            foreach (var dir in directories)
+            {
+                if (Directory.GetFiles(dir).Any(file => IsSupportedImageFormat(file)))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
     }
