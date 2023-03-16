@@ -34,7 +34,7 @@ namespace RecognitionModel
                         // Crop and save each face
                         foreach (Rectangle face in faces)
                         {
-                            using (Mat croppedFace = new Mat(image, face))
+                            using (Mat croppedFace = new Mat(image, face))//Gray image for best results, not colored
                             {
                                 string outputFilePath = Path.Combine(outputFolderPath, $"{Guid.NewGuid()}.jpg");
                                 CvInvoke.Imwrite(outputFilePath, croppedFace);

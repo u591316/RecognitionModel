@@ -25,6 +25,7 @@ namespace RecognitionModel
         private string croppedPhotosPath;
         private string labelsFileName;
         private FaceDatasetManager _faceDatasetManager;
+        private int maxSizeInBytes = (5* 1024 * 1024);
 
         private bool processingCompleted = false;
         private bool training = false; 
@@ -42,8 +43,11 @@ namespace RecognitionModel
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
             _recognizer = new LBPHFaceRecognizer();
-            if(training)
-                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+            if (File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml"))
+                {
+                    _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+                    training = true;
+                };
             _cameraController = new CameraController();
             _cameraController.FrameCaptured += CameraController_FrameCaptured;
 
@@ -64,17 +68,21 @@ namespace RecognitionModel
             Dictionary<int, string> labelToName = new Dictionary<int, string>
             {
                 {1, "Markus Pedersen" },
-                {2, "Matias Raknes" },
-                {3, "Elon Musk" },
-                {4, "Stian Trohaug" }
+                {2, "Elon Musk" },
+                {3, "Stian Trohaug" }
             };
 
             if (faces.Length > 0)
             {
                 faceNotDetectedCounter = 0;
-                if(previousPredictedLabel == -1)
+                if(previousPredictedLabel == -1 && training)
                 {
                     previousPredictedLabel = PerformFaceRecognition(grayFrame, faces[0]);
+                }
+                else
+                {
+                    TrainModel();
+                    training = true; 
                 }
                 using (Graphics g = Graphics.FromImage(image))
                 {
@@ -114,9 +122,8 @@ namespace RecognitionModel
             Dictionary<int, string> newLabelToName = new Dictionary<int, string>
             {
                 {1, "MarkusPedersen" },
-                {2, "MatiasRaknes" },
-                {3, "ElonMusk" },
-                {4, "StianTrohaug" }
+                {2, "ElonMusk" },
+                {3, "StianTrohaug" }
             };
 
             _faceDatasetManager.SaveLabelToNameMap(newLabelToName);
@@ -140,33 +147,46 @@ namespace RecognitionModel
 
             foreach (string imagePath in Directory.GetFiles(person1Folder))
             {
-                if(IsSupportedImageFormat(imagePath))
+                if(IsSupportedImageFormat(imagePath, maxSizeInBytes))
                     FaceUtils.CropFaces(imagePath, person1Cropped);
             }
             foreach(string imagePath in Directory.GetFiles(person2Folder))
             {
-                if (IsSupportedImageFormat(imagePath))
+                if (IsSupportedImageFormat(imagePath, maxSizeInBytes))
                     FaceUtils.CropFaces(imagePath, person2Cropped);
             }
             foreach(string imagePath in Directory.GetFiles(person3Folder))
             {
-                if (IsSupportedImageFormat(imagePath))
+                if (IsSupportedImageFormat(imagePath, maxSizeInBytes))
                     FaceUtils.CropFaces(imagePath, person3Cropped);
             }
             foreach (string imagePath in Directory.GetFiles(person4Folder))
             {
-                if (IsSupportedImageFormat(imagePath))
+                if (IsSupportedImageFormat(imagePath, maxSizeInBytes))
                     FaceUtils.CropFaces(imagePath, person4Cropped);
             }
         }
 
-        private bool IsSupportedImageFormat(string imagePath)
+        //Remember ti switch out maxSizeInBytes param, with hardcoded limit inside the method. Temp param for debgugging
+        private bool IsSupportedImageFormat(string imagePath, int maxSizeInBytes)
         {
             string[] supportedExtensions = { ".jpg", ".jpeg", ".png", ".bmp" };
             string fileExtension = Path.GetExtension(imagePath).ToLower();
 
-            return supportedExtensions.Contains(fileExtension);
+            if (!supportedExtensions.Contains(fileExtension))
+            {
+                return false;
+            }
+
+            FileInfo fileInfo = new FileInfo(imagePath);
+            if (fileInfo.Length > maxSizeInBytes)
+            {
+                return false;
+            }
+
+            return true;
         }
+
 
         private void cropFaces(string imagePath, string outputFolderPath)
         {
@@ -234,12 +254,12 @@ namespace RecognitionModel
         }
 
 
-        private void PredictLabels_btn(object sender, EventArgs e)
+        /*private void PredictLabels_btn(object sender, EventArgs e)
         {
             predictionTest();
         }
 
-        private void predictionTest()
+       /* private void predictionTest()
         {
             string testImageRaw = @"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\rawPhotos\StianTrohaugTest\Jesus-fødselsdag.jpg";
             string testImageCroppedOut = "C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedTestPhotos";
@@ -272,13 +292,14 @@ namespace RecognitionModel
             Console.WriteLine($"Predicted Name: {labelToName[result.Label]}");
             Console.WriteLine($"Confidence: {result.Distance}");
         }
+       */
 
         private bool CheckForProcessedImages()
         {
             var directories = Directory.GetDirectories(croppedPhotosPath);
             foreach (var dir in directories)
             {
-                if (Directory.GetFiles(dir).Any(file => IsSupportedImageFormat(file)))
+                if (Directory.GetFiles(dir).Any(file => IsSupportedImageFormat(file, maxSizeInBytes)))
                 {
                     return true;
                 }
