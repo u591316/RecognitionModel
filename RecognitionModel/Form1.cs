@@ -65,15 +65,6 @@ namespace RecognitionModel
             Image<Bgr, byte> frame = frameBitmap.ToImage<Bgr, byte>();
             Image<Gray, byte> grayFrame = frame.Convert<Gray, byte>();
             Rectangle[] faces = faceDetector.DetectMultiScale(grayFrame, 1.1, 5);
-
-           /* Dictionary<int, string> labelToName = new Dictionary<int, string>
-            {
-                {1, "Markus Pedersen" },
-                {2, "Matias Raknes" },
-                {3, "Elon Musk" },
-                {4, "Stian Trohaug" }
-            };
-           */
             if (faces.Length > 0)
             {
                 faceNotDetectedCounter = 0;
