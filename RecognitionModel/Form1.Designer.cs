@@ -30,16 +30,16 @@
         {
             this.prepPic = new System.Windows.Forms.Button();
             this.btn_train = new System.Windows.Forms.Button();
-            this.button1 = new System.Windows.Forms.Button();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
             // prepPic
             // 
-            this.prepPic.Location = new System.Drawing.Point(560, 23);
+            this.prepPic.Location = new System.Drawing.Point(420, 19);
+            this.prepPic.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.prepPic.Name = "prepPic";
-            this.prepPic.Size = new System.Drawing.Size(110, 31);
+            this.prepPic.Size = new System.Drawing.Size(82, 25);
             this.prepPic.TabIndex = 0;
             this.prepPic.Text = "Prepair Pictures";
             this.prepPic.UseVisualStyleBackColor = true;
@@ -47,42 +47,34 @@
             // 
             // btn_train
             // 
-            this.btn_train.Location = new System.Drawing.Point(560, 69);
+            this.btn_train.Location = new System.Drawing.Point(420, 56);
+            this.btn_train.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.btn_train.Name = "btn_train";
-            this.btn_train.Size = new System.Drawing.Size(110, 28);
+            this.btn_train.Size = new System.Drawing.Size(82, 23);
             this.btn_train.TabIndex = 1;
             this.btn_train.Text = "Train Model";
             this.btn_train.UseVisualStyleBackColor = true;
             this.btn_train.Click += new System.EventHandler(this.btn_train_Click);
             // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(560, 120);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(110, 23);
-            this.button1.TabIndex = 2;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.PredictLabels_btn);
-            // 
             // pictureBox1
             // 
-            this.pictureBox1.Location = new System.Drawing.Point(36, 23);
+            this.pictureBox1.Location = new System.Drawing.Point(27, 19);
+            this.pictureBox1.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(518, 342);
+            this.pictureBox1.Size = new System.Drawing.Size(388, 278);
             this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             this.pictureBox1.TabIndex = 3;
             this.pictureBox1.TabStop = false;
             // 
             // Form1
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
+            this.ClientSize = new System.Drawing.Size(600, 366);
             this.Controls.Add(this.pictureBox1);
-            this.Controls.Add(this.button1);
             this.Controls.Add(this.btn_train);
             this.Controls.Add(this.prepPic);
+            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.Name = "Form1";
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
@@ -94,7 +86,6 @@
 
         private System.Windows.Forms.Button prepPic;
         private System.Windows.Forms.Button btn_train;
-        private System.Windows.Forms.Button button1;
         private System.Windows.Forms.PictureBox pictureBox1;
     }
 }
