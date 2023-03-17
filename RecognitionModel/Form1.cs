@@ -18,7 +18,9 @@ namespace RecognitionModel
         private LBPHFaceRecognizer _recognizer;
         private CameraController _cameraController;
         private int previousPredictedLabel = -1;
-        private int faceNotDetectedCounter = 0; 
+        private int faceNotDetectedCounter = 0;
+        private bool _modelTrained = false;
+
 
         public Form1()
         {
@@ -26,7 +28,7 @@ namespace RecognitionModel
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
             _recognizer = new LBPHFaceRecognizer();
-            _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+            //_recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
             _cameraController = new CameraController();
             _cameraController.FrameCaptured += CameraController_FrameCaptured;
 
@@ -80,6 +82,10 @@ namespace RecognitionModel
 
         private int PerformFaceRecognition(Image<Gray, byte> grayFrame, Rectangle face)
         {
+            if (!_modelTrained)
+            {
+                return -1;
+            }
             Image<Gray, byte> faceImage = grayFrame.Copy(face);
             var result = _recognizer.Predict(faceImage);
 
@@ -157,7 +163,7 @@ namespace RecognitionModel
 
         private void trainModel()
         {
-            LBPHFaceRecognizer _recognizer = new LBPHFaceRecognizer();
+           // LBPHFaceRecognizer _recognizer = new LBPHFaceRecognizer();
 
 
             string[] person1 = Directory.GetFiles("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos\\MarkusPedersen");
@@ -199,15 +205,16 @@ namespace RecognitionModel
 
             _recognizer.Train(images.ToArray(), labels.ToArray());
             _recognizer.Write("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\TrainedModel\\model.yml");
+            _modelTrained = true;
             
         }
 
         private void PredictLabels_btn(object sender, EventArgs e)
         {
-            predictionTest();
+           // predictionTest();
         }
 
-        private void predictionTest()
+       /* private void predictionTest()
         {
             string testImageRaw = @"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\rawPhotos\StianTrohaugTest\Jesus-fødselsdag.jpg";
             string testImageCroppedOut = "C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedTestPhotos";
@@ -240,6 +247,7 @@ namespace RecognitionModel
             Console.WriteLine($"Predicted Name: {labelToName[result.Label]}");
             Console.WriteLine($"Confidence: {result.Distance}");
         }
+       */
 
     }
 }
