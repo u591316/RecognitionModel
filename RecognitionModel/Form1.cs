@@ -10,6 +10,7 @@ using Emgu.CV.Face;
 using System.Linq;
 using System.Drawing.Text;
 using Tensorflow.Train;
+using System.Diagnostics;
 
 namespace RecognitionModel
 {
@@ -26,10 +27,19 @@ namespace RecognitionModel
         private string labelsFileName;
         private FaceDatasetManager _faceDatasetManager;
 
+        private List<TrackedFaces> _trackedFaces;
+
 
         private bool processingCompleted = false;
-        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml"); 
-
+        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+        /// <summary>
+        /// threshold for movement in frame to trigger new recognition
+        /// </summary>
+        private int threshold = 300;
+        /// <summary>
+        /// threshold for a prediction to be considered recognized
+        /// </summary>
+        private double confidenceThreshold = 75.0;
 
         public Form1()
         {
@@ -38,6 +48,7 @@ namespace RecognitionModel
             croppedPhotosPath = "C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\croppedPhotos";
             labelsFileName = "labels.txt";
             _faceDatasetManager = new FaceDatasetManager(rawPhotosPath, croppedPhotosPath, labelsFileName);
+            _trackedFaces = new List<TrackedFaces>();
             processingCompleted = CheckForProcessedImages();
             Dictionary<int, string> labelToName = _faceDatasetManager.LoadLabelToNameMap();
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
@@ -65,35 +76,70 @@ namespace RecognitionModel
             Image<Bgr, byte> frame = frameBitmap.ToImage<Bgr, byte>();
             Image<Gray, byte> grayFrame = frame.Convert<Gray, byte>();
             Rectangle[] faces = faceDetector.DetectMultiScale(grayFrame, 1.1, 5);
-            if (faces.Length > 0)
+
+            foreach(var face in faces)
             {
-                faceNotDetectedCounter = 0;
-                if(previousPredictedLabel == -1)
+                TrackedFaces matchingTrackedFace = null; 
+
+                foreach(var trackedFace in _trackedFaces)
                 {
-                    previousPredictedLabel = PerformFaceRecognition(grayFrame, faces[0]);
+                    if(IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold))
+                    {
+                        matchingTrackedFace = trackedFace;
+                        break;
+                    }
                 }
+                if(matchingTrackedFace != null)
+                {
+                    matchingTrackedFace.FaceRectangle = face;
+                    matchingTrackedFace.FrameCounter = 0;
+                }
+                else
+                {
+                    int label = PerformFaceRecognition(grayFrame, face);
+                    _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0 });
+                }
+            }
                 using (Graphics g = Graphics.FromImage(image))
                 {
-                    //Labelling for detection in frame
-                    string name = GetLabelToNameMap().ContainsKey(previousPredictedLabel) ? GetLabelToNameMap()[previousPredictedLabel] : "Ukjent";
-                    Font font = new Font("Arial", 16);
-                    SolidBrush brush = new SolidBrush(Color.Red);
-                    PointF point = new PointF(faces[0].Left, faces[0].Top - 20);
+                     foreach(var trackedFace in _trackedFaces)
+                     {
+                        if(trackedFace.LastDrawnLabel != trackedFace.Label)
+                         {
+                            trackedFace.LastDrawnLabel = trackedFace.Label;
+                            //Labelling for detection in frame
+                            string name = GetLabelToNameMap().ContainsKey(trackedFace.Label) ? GetLabelToNameMap()[trackedFace.Label] : "Ukjent";
+                            Font font = new Font("Arial", 16);
+                            SolidBrush brush = new SolidBrush(Color.Red);
+                            PointF point = new PointF(trackedFace.FaceRectangle.Left, trackedFace.FaceRectangle.Top - 20);
 
-                    g.DrawString(name, font, brush, point);
+                            g.DrawString(name, font, brush, point);
+
+                        }
+                     }
+                    
                 }
-            }
-            else
+            //Remove old tracked faces based on number of frames not detected
+            _trackedFaces.RemoveAll(t => t.FrameCounter > 30);
+
+            foreach(var trackedFace in _trackedFaces)
             {
-                faceNotDetectedCounter++;
-                //Number of frames without a detection threshold for running new recognition
-                if(faceNotDetectedCounter > 30)
+                bool faceDetected = faces.Any(face => IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold));
+                if (!faceDetected)
                 {
-                    previousPredictedLabel = -1;
-                    faceNotDetectedCounter = 0;
+                    trackedFace.FrameCounter++;
                 }
             }
-            pictureBox1.Image = image; 
+            pictureBox1.Image = image;
+        }
+
+        private bool IsFacePositionChanged(Rectangle face1, Rectangle face2, int threshold)
+        {
+            int deltaX = Math.Abs(face1.X - face2.X);
+            int deltaY = Math.Abs(face1.Y - face2.Y);
+            
+            //Debug.WriteLine(deltaX + ", " +  deltaY);
+            return deltaX > threshold || deltaY > threshold;
         }
 
         private Dictionary<int, string> GetLabelToNameMap()
@@ -129,8 +175,18 @@ namespace RecognitionModel
                 return -1;
             }
             Image<Gray, byte> faceImage = grayFrame.Copy(face);
+            //faceImage.Resize(50, 50, Inter.Cubic);
             var result = _recognizer.Predict(faceImage);
-
+            Debug.WriteLine(result.Distance);
+            
+            if(result.Distance <= confidenceThreshold)
+            {
+                return result.Label;
+            }
+            else
+            {
+                return -1; //Return -1 for label "ukjent"
+            }
             return result.Label; 
         }
 

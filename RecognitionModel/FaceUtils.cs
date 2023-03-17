@@ -39,7 +39,6 @@ namespace RecognitionModel
                             {
                                 string outputFilePath = Path.Combine(outputFolderPath, $"{Guid.NewGuid()}.jpg");
                                 CvInvoke.Imwrite(outputFilePath, croppedFace);
-                                Thread.Sleep(100);
                             }
                         }
                     }
