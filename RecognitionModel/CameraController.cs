@@ -24,6 +24,11 @@ namespace RecognitionModel
         {
             Mat frame = new Mat();
             _capture.Retrieve(frame);
+            if (frame.IsEmpty)
+            {
+                Console.WriteLine("Frame is empty");
+                return;
+            }
             Image<Bgr, byte> image = frame.ToImage<Bgr, byte>();
             OnFrameCaptured(image.ToBitmap());
 
