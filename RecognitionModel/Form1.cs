@@ -311,7 +311,7 @@ namespace RecognitionModel
             Console.WriteLine($"Predicted Name: {labelToName[result.Label]}");
             Console.WriteLine($"Confidence: {result.Distance}");
         }
-       */
+       
 
         /// <summary>
         /// Checks if there are any processed images in the dataset.
