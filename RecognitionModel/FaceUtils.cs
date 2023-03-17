@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using RecognitionModel;
+using System.Threading;
 
 namespace RecognitionModel
 {
@@ -38,6 +39,7 @@ namespace RecognitionModel
                             {
                                 string outputFilePath = Path.Combine(outputFolderPath, $"{Guid.NewGuid()}.jpg");
                                 CvInvoke.Imwrite(outputFilePath, croppedFace);
+                                Thread.Sleep(100);
                             }
                         }
                     }

@@ -27,7 +27,7 @@ namespace RecognitionModel
         private FaceDatasetManager _faceDatasetManager;
 
         private bool processingCompleted = false;
-        private bool training = false; 
+        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml"); 
 
 
         public Form1()
@@ -42,13 +42,17 @@ namespace RecognitionModel
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
             _recognizer = new LBPHFaceRecognizer();
-            if(training)
-                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+            //if(training)
+             _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
             _cameraController = new CameraController();
             _cameraController.FrameCaptured += CameraController_FrameCaptured;
 
         }
-
+        /// <summary>
+        /// Event handler for the FrameCaptured event in the CameraController class.
+        /// Processes the captured image and updates pictureBox1.
+        /// </summary>
+        /// <param name="image">The captured Bitmap image.</param>
         private void CameraController_FrameCaptured(Bitmap image)
         {
             if (!processingCompleted)
@@ -78,8 +82,8 @@ namespace RecognitionModel
                 }
                 using (Graphics g = Graphics.FromImage(image))
                 {
-                    // Justere tekststil og posisjon etter behov
-                    string name = labelToName[previousPredictedLabel];
+                    //Labelling for detection in frame
+                    string name = labelToName.ContainsKey(previousPredictedLabel) ? labelToName[previousPredictedLabel] : "Ukjent";
                     Font font = new Font("Arial", 16);
                     SolidBrush brush = new SolidBrush(Color.Red);
                     PointF point = new PointF(faces[0].Left, faces[0].Top - 20);
@@ -99,15 +103,29 @@ namespace RecognitionModel
             }
             pictureBox1.Image = image; 
         }
-
+        /// <summary>
+        /// Performs face recognition on the given grayscale image and returns the label of the recognized face.
+        /// </summary>
+        /// <param name="grayFrame">The grayscale image containing the face.</param>
+        /// <param name="face">The detected face in the image.</param>
+        /// <returns>The label of the recognized face.</returns>
         private int PerformFaceRecognition(Image<Gray, byte> grayFrame, Rectangle face)
         {
+            //If training is uncompleted, return -1
+            if (!training)
+            {
+                Console.WriteLine("The model is not yet trained");
+                return -1;
+            }
             Image<Gray, byte> faceImage = grayFrame.Copy(face);
             var result = _recognizer.Predict(faceImage);
 
             return result.Label; 
         }
-
+        /// <summary>
+        /// Event handler for the click event of the prepPic button.
+        /// Processes raw photos and saves the label to name mapping.
+        /// </summary>
         private void prepPic_Click(object sender, EventArgs e)
         {
             _faceDatasetManager.ProcessRawPhotos();
@@ -122,7 +140,9 @@ namespace RecognitionModel
             _faceDatasetManager.SaveLabelToNameMap(newLabelToName);
             processingCompleted = true; 
         }
-
+        /// <summary>
+        /// Crops and grayscales the faces in the images in the given folders and saves them to the specified output folders.
+        /// </summary>
         private void cropPictures()
         {
             //Add folders for pictures to be cropped and grayed 
@@ -159,7 +179,11 @@ namespace RecognitionModel
                     FaceUtils.CropFaces(imagePath, person4Cropped);
             }
         }
-
+        /// <summary>
+        /// Checks if the given image file is in a supported format.
+        /// </summary>
+        /// <param name="imagePath">The file path of the image.</param>
+        /// <returns>True if the image is in a supported format, false otherwise.</returns>
         private bool IsSupportedImageFormat(string imagePath)
         {
             string[] supportedExtensions = { ".jpg", ".jpeg", ".png", ".bmp" };
@@ -168,6 +192,11 @@ namespace RecognitionModel
             return supportedExtensions.Contains(fileExtension);
         }
 
+        /// <summary>
+        /// Crops the faces in the given image and saves them to the specified output folder.
+        /// </summary>
+        /// <param name="imagePath">The file path of the image.</param>
+        /// <param name="outputFolderPath">The folder path to save the cropped faces.</param>
         private void cropFaces(string imagePath, string outputFolderPath)
         {
             using (Mat image = CvInvoke.Imread(imagePath, ImreadModes.Color))
@@ -202,6 +231,9 @@ namespace RecognitionModel
             TrainModel();
         }
 
+        /// <summary>
+        /// Trains the face recognition model with the available dataset.
+        /// </summary>
         private void TrainModel()
         {
             LBPHFaceRecognizer _recognizer = new LBPHFaceRecognizer();
@@ -230,15 +262,22 @@ namespace RecognitionModel
 
             _recognizer.Train(images.ToArray(), labels.ToArray());
             _recognizer.Write("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\TrainedModel\\model.yml");
+            _recognizer.Read("C:\\Users\\peder\\source\\repos\\RecognitionModel\\RecognitionModel\\bin\\Debug\\TrainedModel\\model.yml");
             training = true; 
         }
 
-
+        /// <summary>
+        /// Event handler for the click event of the PredictLabels button.
+        /// Tests the model's prediction on a test picture.
+        /// </summary>
         private void PredictLabels_btn(object sender, EventArgs e)
         {
             predictionTest();
         }
 
+        /// <summary>
+        /// Method for testing the model by running a prediction on a test picture from file.
+        /// </summary>
         private void predictionTest()
         {
             string testImageRaw = @"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\rawPhotos\StianTrohaugTest\Jesus-fødselsdag.jpg";
@@ -273,6 +312,10 @@ namespace RecognitionModel
             Console.WriteLine($"Confidence: {result.Distance}");
         }
 
+        /// <summary>
+        /// Checks if there are any processed images in the dataset.
+        /// </summary>
+        /// <returns>True if there are any processed images, false otherwise.</returns>
         private bool CheckForProcessedImages()
         {
             var directories = Directory.GetDirectories(croppedPhotosPath);
