@@ -11,6 +11,7 @@ using System.Linq;
 using System.Drawing.Text;
 using Tensorflow.Train;
 using System.Diagnostics;
+using System.Threading;
 
 namespace RecognitionModel
 {
@@ -31,15 +32,16 @@ namespace RecognitionModel
 
 
         private bool processingCompleted = false;
-        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\modelV6.yml");
+        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
         /// <summary>
         /// threshold for movement in frame to trigger new recognition
         /// </summary>
-        private int threshold = 3000;
+        private int threshold = 100;
         /// <summary>
         /// threshold for a prediction to be considered recognized
         /// </summary>
-        private double confidenceThreshold = 42.0;
+        private double confidenceThreshold = 50.0;
+        private static int N = 5;
 
         public Form1()
         {
@@ -55,7 +57,7 @@ namespace RecognitionModel
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
             _recognizer = new LBPHFaceRecognizer();
             if(training)
-                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\modelV6.yml");
+                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
             _cameraController = new CameraController();
             _cameraController.FrameCaptured += CameraController_FrameCaptured;
 
@@ -75,19 +77,37 @@ namespace RecognitionModel
             Bitmap frameBitmap = new Bitmap(image);
             Image<Bgr, byte> frame = frameBitmap.ToImage<Bgr, byte>();
             Image<Gray, byte> grayFrame = frame.Convert<Gray, byte>();
-            Rectangle[] faces = faceDetector.DetectMultiScale(grayFrame, 1.1, 5);
+            Rectangle[] faces = faceDetector.DetectMultiScale(grayFrame, 1.1, 5); //Testing both frame and grayFrame to see which works best
+
+            //Update existing tracking data for faces in frame
+            foreach(var trackedFace in _trackedFaces)
+            {
+                trackedFace.FrameCounter++;
+            }
 
             foreach(var face in faces)
             {
-                TrackedFaces matchingTrackedFace = null; 
+                TrackedFaces matchingTrackedFace = null;
+                int minDistance = int.MaxValue; 
 
                 foreach(var trackedFace in _trackedFaces)
                 {
-                    if(IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold))
+                    /*if(!IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold))
                     {
                         matchingTrackedFace = trackedFace;
                         break;
+                    }*/
+                    int deltaX = Math.Abs(trackedFace.FaceRectangle.X - face.X);
+                    int deltaY = Math.Abs(trackedFace.FaceRectangle.Y - face.Y);
+                    int distance = deltaX + deltaY;
+
+                    if(distance < threshold && distance < minDistance)
+                    {
+                        matchingTrackedFace = trackedFace;
+                        minDistance = distance; 
                     }
+
+
                 }
                 if(matchingTrackedFace != null)
                 {
@@ -96,40 +116,62 @@ namespace RecognitionModel
                 }
                 else
                 {
-                    int label = PerformFaceRecognition(grayFrame, face);
-                    _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0 });
+                     int label = PerformFaceRecognition(grayFrame, face);
+                    if(label == -1)//If the label is "unknown"
+                    {
+                        var unknownFace = _trackedFaces.FirstOrDefault(f => f.FaceRectangle == face);
+                        if(unknownFace == null)
+                        {
+                            _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0, LastDrawnLabel = -1, UnknownCounter = 1 });
+                        }
+                        else
+                        {
+                            unknownFace.UnknownCounter++;
+                            if(unknownFace.UnknownCounter >= N)
+                            {
+                                unknownFace.UnknownCounter = 0;
+                                label = PerformFaceRecognition(grayFrame, face);
+                                if(label != -1)
+                                {
+                                    unknownFace.Label = label;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                    _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0, LastDrawnLabel = -1 });
+
+                    }
                 }
             }
                 using (Graphics g = Graphics.FromImage(image))
                 {
                      foreach(var trackedFace in _trackedFaces)
                      {
-                        if(trackedFace.LastDrawnLabel != trackedFace.Label)
-                         {
-                            trackedFace.LastDrawnLabel = trackedFace.Label;
-                            //Labelling for detection in frame
-                            string name = GetLabelToNameMap().ContainsKey(trackedFace.Label) ? GetLabelToNameMap()[trackedFace.Label] : "Ukjent";
-                            Font font = new Font("Arial", 16);
-                            SolidBrush brush = new SolidBrush(Color.Red);
-                            PointF point = new PointF(trackedFace.FaceRectangle.Left, trackedFace.FaceRectangle.Top - 20);
+                        string name = GetLabelToNameMap().ContainsKey(trackedFace.Label) ? GetLabelToNameMap()[trackedFace.Label] : "Ukjent";
+                        Font font = new Font("Arial", 16);
+                        SolidBrush brush = new SolidBrush(Color.Red);
+                        PointF point = new PointF(trackedFace.FaceRectangle.Left, trackedFace.FaceRectangle.Top - 20);
+                        g.DrawString(name, font, brush, point);
+                        g.DrawRectangle(new Pen(brush, 2), trackedFace.FaceRectangle);
 
-                            g.DrawString(name, font, brush, point);
 
-                        }
                      }
                     
                 }
             //Remove old tracked faces based on number of frames not detected
             _trackedFaces.RemoveAll(t => t.FrameCounter > 30);
-
+            /*
             foreach(var trackedFace in _trackedFaces)
             {
                 bool faceDetected = faces.Any(face => IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold));
-                if (!faceDetected)
+                if (faceDetected)
                 {
                     trackedFace.FrameCounter++;
                 }
             }
+            */
             pictureBox1.Image = image;
         }
 
@@ -149,11 +191,8 @@ namespace RecognitionModel
             {
                 labelToname = new Dictionary<int, string>
                 {
-                    {1, "Markus Pedersen" },
-                    {2, "Matias Raknes" },
-                    {3, "Elon Musk" },
-                    {4, "Stian Trohaug" },
-                    {5, "Marie Herheim" }
+                    {1, "MarkusPedersen" },
+                    {2, "MatiasRaknes" }
                 };
                 _faceDatasetManager.SaveLabelToNameMap(labelToname);
             }
@@ -203,10 +242,8 @@ namespace RecognitionModel
                 _faceDatasetManager.ProcessRawPhotos();
                 Dictionary<int, string> newLabelToName = new Dictionary<int, string>
                 {
-                 {1, "MarkusPedersen" },
-                 {2, "MatiasRaknes" },
-                 {3, "ElonMusk" },
-                 {4, "StianTrohaug" }
+                    {1, "MarkusPedersen" },
+                    {2, "MatiasRaknes" }
 
                 };
 

@@ -30,12 +30,12 @@ namespace RecognitionModel
                         CvInvoke.EqualizeHist(gray, gray);
 
                         // Detect faces
-                        Rectangle[] faces = faceDetector.DetectMultiScale(gray, 1.1, 10, new Size(50, 50));
+                        Rectangle[] faces = faceDetector.DetectMultiScale(image, 1.1, 10, new Size(50, 50)); //Test image and gray for comparing result
 
                         // Crop and save each face
                         foreach (Rectangle face in faces)
                         {
-                            using (Mat croppedFace = new Mat(gray, face))
+                            using (Mat croppedFace = new Mat(image, face))
                             {
                                 string outputFilePath = Path.Combine(outputFolderPath, $"{Guid.NewGuid()}.jpg");
                                 CvInvoke.Imwrite(outputFilePath, croppedFace);

@@ -17,5 +17,9 @@ namespace RecognitionModel
         public int FrameCounter { get; set; }   
         public int LastDrawnLabel { get; set; }
 
+        private static List<UnknownFace> _trackedFaces = new List<UnknownFace>();
+        public int UnknownCounter { get; set; }
+
+
     }
 }
