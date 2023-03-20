@@ -31,15 +31,15 @@ namespace RecognitionModel
 
 
         private bool processingCompleted = false;
-        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+        private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\modelV6.yml");
         /// <summary>
         /// threshold for movement in frame to trigger new recognition
         /// </summary>
-        private int threshold = 300;
+        private int threshold = 3000;
         /// <summary>
         /// threshold for a prediction to be considered recognized
         /// </summary>
-        private double confidenceThreshold = 75.0;
+        private double confidenceThreshold = 42.0;
 
         public Form1()
         {
@@ -55,7 +55,7 @@ namespace RecognitionModel
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
             _recognizer = new LBPHFaceRecognizer();
             if(training)
-                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
+                _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\modelV6.yml");
             _cameraController = new CameraController();
             _cameraController.FrameCaptured += CameraController_FrameCaptured;
 
@@ -152,7 +152,8 @@ namespace RecognitionModel
                     {1, "Markus Pedersen" },
                     {2, "Matias Raknes" },
                     {3, "Elon Musk" },
-                    {4, "Stian Trohaug" }
+                    {4, "Stian Trohaug" },
+                    {5, "Marie Herheim" }
                 };
                 _faceDatasetManager.SaveLabelToNameMap(labelToname);
             }
