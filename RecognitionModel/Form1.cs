@@ -30,7 +30,7 @@ namespace RecognitionModel
 
         private List<TrackedFaces> _trackedFaces;
 
-
+        // Processed images exist
         private bool processingCompleted = false;
         private bool training = File.Exists(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
         /// <summary>
@@ -40,8 +40,8 @@ namespace RecognitionModel
         /// <summary>
         /// threshold for a prediction to be considered recognized
         /// </summary>
-        private double confidenceThreshold = 75.0;
-        private static int N = 5;
+        private double confidenceThreshold = 80.0;
+        private static int ReevaluateUnknownCounter = 5;
 
         public Form1()
         {
@@ -55,7 +55,7 @@ namespace RecognitionModel
             Dictionary<int, string> labelToName = _faceDatasetManager.LoadLabelToNameMap();
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
-            _recognizer = new LBPHFaceRecognizer(1, 32);
+            _recognizer = new LBPHFaceRecognizer();
             if(training)
                 _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
             _cameraController = new CameraController();
@@ -80,116 +80,75 @@ namespace RecognitionModel
             Rectangle[] faces = faceDetector.DetectMultiScale(grayFrame, 1.1, 5); //Testing both frame and grayFrame to see which works best
 
             //Update existing tracking data for faces in frame
-            foreach(var trackedFace in _trackedFaces)
+            foreach(TrackedFaces trackedFace in _trackedFaces)
             {
                 trackedFace.FrameCounter++;
             }
 
-            foreach(var face in faces)
+            foreach(Rectangle face in faces)
             {
-                TrackedFaces matchingTrackedFace = null;
-                int minDistance = int.MaxValue; 
+                (TrackedFaces matchingTrackedFace, int minDistance) = GetMatchingTrackedFace(face);
 
-                foreach(var trackedFace in _trackedFaces)
-                {
-                    /*if(!IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold))
-                    {
-                        matchingTrackedFace = trackedFace;
-                        break;
-                    }*/
-                    int deltaX = Math.Abs(trackedFace.FaceRectangle.X - face.X);
-                    int deltaY = Math.Abs(trackedFace.FaceRectangle.Y - face.Y);
-                    int distance = deltaX + deltaY;
-
-                    if(distance < threshold && distance < minDistance)
-                    {
-                        matchingTrackedFace = trackedFace;
-                        minDistance = distance; 
-                    }
-
-
-                }
-                if(matchingTrackedFace != null && matchingTrackedFace.Label != -1)
-                //if(matchingTrackedFace != null)
+                if(matchingTrackedFace != null && matchingTrackedFace.Label != -1 && false)
                 {
                     matchingTrackedFace.FaceRectangle = face;
                     matchingTrackedFace.FrameCounter = 0;
+                    continue;
                 }
-                else
+
+                // Face is new and/or previously unknown.
+                int label = PerformFaceRecognition(grayFrame, face);
+                if (matchingTrackedFace == null || label != -1)
                 {
-                     int label = PerformFaceRecognition(grayFrame, face);
-                    if(label == -1)//If the label is "unknown"
-                    {
-                        var unknownFace = _trackedFaces.FirstOrDefault(f => f.FaceRectangle == face);
-                        
-                        if(unknownFace == null)
-                        {
-                            _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0, LastDrawnLabel = -1, UnknownCounter = 1});
-                        }
-                        else
-                        {
-                            unknownFace.UnknownCounter++;
-                            if(unknownFace.UnknownCounter >= N)
-                            {
-                                unknownFace.UnknownCounter = 0;
-                                label = PerformFaceRecognition(grayFrame, face);
-                                Debug.WriteLine(label);
-                                if(label != -1)
-                                {
-                                    unknownFace.Label = label;
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
                     _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0, LastDrawnLabel = -1 });
+                    continue;
+                }
 
+                // Face was and is still unknown.
+                matchingTrackedFace.UnknownCounter++;
+                if (matchingTrackedFace.UnknownCounter >= ReevaluateUnknownCounter)
+                {
+                    matchingTrackedFace.UnknownCounter = 0;
+                    Debug.WriteLine(label);
+                }
+            }
+            using (Graphics g = Graphics.FromImage(image))
+            {
+                foreach(TrackedFaces trackedFace in _trackedFaces)
+                {
+                    string name = GetLabelToNameMap().ContainsKey(trackedFace.Label) ? GetLabelToNameMap()[trackedFace.Label] : "Ukjent";
+                    Font font = new Font("Arial", 16);
+                    SolidBrush brush = new SolidBrush(Color.Red);
+                    PointF point = new PointF(trackedFace.FaceRectangle.Left, trackedFace.FaceRectangle.Top - 20);
+                    if(name != "Ukjent" || true)
+                    {
+                        g.DrawString(name, font, brush, point);
+                        g.DrawRectangle(new Pen(brush, 2), trackedFace.FaceRectangle);
                     }
                 }
             }
-                using (Graphics g = Graphics.FromImage(image))
-                {
-                     foreach(var trackedFace in _trackedFaces)
-                     {
-                        
-                        string name = GetLabelToNameMap().ContainsKey(trackedFace.Label) ? GetLabelToNameMap()[trackedFace.Label] : "Ukjent";
-                        Font font = new Font("Arial", 16);
-                        SolidBrush brush = new SolidBrush(Color.Red);
-                        PointF point = new PointF(trackedFace.FaceRectangle.Left, trackedFace.FaceRectangle.Top - 20);
-                        if(name != "Ukjent")
-                        {
-                            g.DrawString(name, font, brush, point);
-                            g.DrawRectangle(new Pen(brush, 2), trackedFace.FaceRectangle);
-
-                        }
-
-
-                     }
-                    
-                }
             //Remove old tracked faces based on number of frames not detected
-            _trackedFaces.RemoveAll(t => t.FrameCounter > 30);
-            /*
-            foreach(var trackedFace in _trackedFaces)
-            {
-                bool faceDetected = faces.Any(face => IsFacePositionChanged(trackedFace.FaceRectangle, face, threshold));
-                if (faceDetected)
-                {
-                    trackedFace.FrameCounter++;
-                }
-            }
-            */
+            _trackedFaces.RemoveAll(t => t.FrameCounter > -1);
             pictureBox1.Image = image;
         }
 
-        private bool IsFacePositionChanged(Rectangle face1, Rectangle face2, int threshold)
+        private (TrackedFaces matchingTrackedFace, int minDistance) GetMatchingTrackedFace(Rectangle face)
         {
-            int deltaX = Math.Abs(face1.X - face2.X);
-            int deltaY = Math.Abs(face1.Y - face2.Y);
-            
-            //Debug.WriteLine(deltaX + ", " +  deltaY);
-            return deltaX > threshold || deltaY > threshold;
+            TrackedFaces matchingTrackedFace = null;
+            int minDistance = int.MaxValue;
+            foreach (TrackedFaces trackedFace in _trackedFaces)
+            {
+                int deltaX = Math.Abs(trackedFace.FaceRectangle.X - face.X);
+                int deltaY = Math.Abs(trackedFace.FaceRectangle.Y - face.Y);
+                int distance = deltaX + deltaY;
+
+                if (distance < threshold && distance < minDistance)
+                {
+                    matchingTrackedFace = trackedFace;
+                    minDistance = distance;
+                }
+            }
+            return (matchingTrackedFace, minDistance);
         }
 
         private Dictionary<int, string> GetLabelToNameMap()
@@ -224,9 +183,9 @@ namespace RecognitionModel
                 return -1;
             }
             Image<Gray, byte> faceImage = grayFrame.Copy(face);
-            //faceImage.Resize(50, 50, Inter.Cubic);
+            faceImage.Resize(512, 512, Inter.Cubic);
             var result = _recognizer.Predict(faceImage);
-            Debug.WriteLine(result.Distance);
+            //Debug.WriteLine(result.Distance);
             
             if(result.Distance <= confidenceThreshold)
             {

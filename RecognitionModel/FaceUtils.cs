@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using RecognitionModel;
 using System.Threading;
+using Emgu.CV.Structure;
 
 namespace RecognitionModel
 {
@@ -37,15 +38,17 @@ namespace RecognitionModel
                         CvInvoke.EqualizeHist(gray, gray);
 
                         // Detect faces
-                        Rectangle[] faces = faceDetector.DetectMultiScale(image, 1.1, 10, new Size(50, 50)); 
+                        Rectangle[] faces = faceDetector.DetectMultiScale(image, 1.1, 10, new Size(20, 20)); 
 
                         // Crop and save each face
                         foreach (Rectangle face in faces)
                         {
                             using (Mat croppedFace = new Mat(gray, face)) //Test image and gray for comparing result
                             {
+                                Image<Gray, byte> resized = croppedFace.ToImage<Gray, byte>();
+                                resized = resized.Resize(512, 512, Inter.Cubic);
                                 string outputFilePath = Path.Combine(outputFolderPath, $"{Guid.NewGuid()}.jpg");
-                                CvInvoke.Imwrite(outputFilePath, croppedFace);
+                                CvInvoke.Imwrite(outputFilePath, resized);
                             }
                         }
                     }
