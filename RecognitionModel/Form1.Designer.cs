@@ -37,20 +37,20 @@
             // prepPic
             // 
             this.prepPic.Location = new System.Drawing.Point(765, 19);
-            this.prepPic.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.prepPic.Margin = new System.Windows.Forms.Padding(2);
             this.prepPic.Name = "prepPic";
-            this.prepPic.Size = new System.Drawing.Size(82, 25);
+            this.prepPic.Size = new System.Drawing.Size(105, 25);
             this.prepPic.TabIndex = 0;
-            this.prepPic.Text = "Prepair Pictures";
+            this.prepPic.Text = "Prepare Pictures";
             this.prepPic.UseVisualStyleBackColor = true;
             this.prepPic.Click += new System.EventHandler(this.prepPic_Click);
             // 
             // btn_train
             // 
             this.btn_train.Location = new System.Drawing.Point(765, 66);
-            this.btn_train.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.btn_train.Margin = new System.Windows.Forms.Padding(2);
             this.btn_train.Name = "btn_train";
-            this.btn_train.Size = new System.Drawing.Size(82, 23);
+            this.btn_train.Size = new System.Drawing.Size(105, 23);
             this.btn_train.TabIndex = 1;
             this.btn_train.Text = "Train Model";
             this.btn_train.UseVisualStyleBackColor = true;
@@ -59,10 +59,9 @@
             // pictureBox1
             // 
             this.pictureBox1.Location = new System.Drawing.Point(27, 19);
-            this.pictureBox1.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.pictureBox1.Margin = new System.Windows.Forms.Padding(2);
             this.pictureBox1.Name = "pictureBox1";
             this.pictureBox1.Size = new System.Drawing.Size(676, 472);
-            //this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             this.pictureBox1.TabIndex = 3;
             this.pictureBox1.TabStop = false;
             // 
@@ -74,7 +73,7 @@
             this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.btn_train);
             this.Controls.Add(this.prepPic);
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "Form1";
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();

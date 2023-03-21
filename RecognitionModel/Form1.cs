@@ -40,7 +40,7 @@ namespace RecognitionModel
         /// <summary>
         /// threshold for a prediction to be considered recognized
         /// </summary>
-        private double confidenceThreshold = 50.0;
+        private double confidenceThreshold = 75.0;
         private static int N = 5;
 
         public Form1()
@@ -55,7 +55,7 @@ namespace RecognitionModel
             Dictionary<int, string> labelToName = _faceDatasetManager.LoadLabelToNameMap();
             //Load pre-trained face detection model --> For bad results on predictions, switch to frontalface_default for test purposes
             faceDetector = new CascadeClassifier(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\haarcascade_frontalface_alt.xml");
-            _recognizer = new LBPHFaceRecognizer();
+            _recognizer = new LBPHFaceRecognizer(1, 32);
             if(training)
                 _recognizer.Read(@"C:\Users\peder\source\repos\RecognitionModel\RecognitionModel\bin\Debug\TrainedModel\model.yml");
             _cameraController = new CameraController();
@@ -109,7 +109,8 @@ namespace RecognitionModel
 
 
                 }
-                if(matchingTrackedFace != null)
+                if(matchingTrackedFace != null && matchingTrackedFace.Label != -1)
+                //if(matchingTrackedFace != null)
                 {
                     matchingTrackedFace.FaceRectangle = face;
                     matchingTrackedFace.FrameCounter = 0;
@@ -120,9 +121,10 @@ namespace RecognitionModel
                     if(label == -1)//If the label is "unknown"
                     {
                         var unknownFace = _trackedFaces.FirstOrDefault(f => f.FaceRectangle == face);
+                        
                         if(unknownFace == null)
                         {
-                            _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0, LastDrawnLabel = -1, UnknownCounter = 1 });
+                            _trackedFaces.Add(new TrackedFaces { FaceRectangle = face, Label = label, FrameCounter = 0, LastDrawnLabel = -1, UnknownCounter = 1});
                         }
                         else
                         {
@@ -131,6 +133,7 @@ namespace RecognitionModel
                             {
                                 unknownFace.UnknownCounter = 0;
                                 label = PerformFaceRecognition(grayFrame, face);
+                                Debug.WriteLine(label);
                                 if(label != -1)
                                 {
                                     unknownFace.Label = label;
@@ -149,12 +152,17 @@ namespace RecognitionModel
                 {
                      foreach(var trackedFace in _trackedFaces)
                      {
+                        
                         string name = GetLabelToNameMap().ContainsKey(trackedFace.Label) ? GetLabelToNameMap()[trackedFace.Label] : "Ukjent";
                         Font font = new Font("Arial", 16);
                         SolidBrush brush = new SolidBrush(Color.Red);
                         PointF point = new PointF(trackedFace.FaceRectangle.Left, trackedFace.FaceRectangle.Top - 20);
-                        g.DrawString(name, font, brush, point);
-                        g.DrawRectangle(new Pen(brush, 2), trackedFace.FaceRectangle);
+                        if(name != "Ukjent")
+                        {
+                            g.DrawString(name, font, brush, point);
+                            g.DrawRectangle(new Pen(brush, 2), trackedFace.FaceRectangle);
+
+                        }
 
 
                      }
@@ -192,7 +200,8 @@ namespace RecognitionModel
                 labelToname = new Dictionary<int, string>
                 {
                     {1, "MarkusPedersen" },
-                    {2, "MatiasRaknes" }
+                    {2, "MatiasRaknes" },
+                    {3, "StianTrohaug" }
                 };
                 _faceDatasetManager.SaveLabelToNameMap(labelToname);
             }
@@ -243,7 +252,8 @@ namespace RecognitionModel
                 Dictionary<int, string> newLabelToName = new Dictionary<int, string>
                 {
                     {1, "MarkusPedersen" },
-                    {2, "MatiasRaknes" }
+                    {2, "MatiasRaknes" },
+                    {3, "StianTrohaug" }
 
                 };
 
